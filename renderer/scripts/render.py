@@ -8,14 +8,29 @@ import bpy
 
 def main():
     """Main entry point for the Blender rendering script"""
+    print("Starting Blender render script...")
     args = parse_args(sys.argv)
+    print(f"Parsed args: source={args.source}, target={args.target}, output={args.output_dir}")
 
+    print("Initializing scene...")
     init_scene(args.resolution, args.resolution, args.fps, args.render_padding)
-    source_arm, target_arm = import_assets(args.source, args.target)
-    frames_dir = prepare_frames_directory(args.output_dir)
+    print("Scene initialized")
 
+    print("Importing assets...")
+    source_arm, target_arm = import_assets(args.source, args.target)
+    print("Assets imported")
+
+    print("Preparing frames directory...")
+    frames_dir = prepare_frames_directory(args.output_dir)
+    print(f"Frames directory: {frames_dir}")
+
+    print("Starting render sequence...")
     poses = render_sequence(source_arm, target_arm, frames_dir, args.render_padding, args.fps)
+    print(f"Render sequence completed, got {len(poses)} poses")
+
+    print("Writing poses.json...")
     write_poses_json(args.output_dir, args.source, args.target, poses)
+    print("poses.json written successfully")
 
 
 def parse_args(argv):
@@ -48,6 +63,13 @@ def init_scene(res_w: int, res_h: int, fps: int, render_padding: int):
     # Set FPS
     scene.render.fps = fps
     scene.render.fps_base = 1.0
+    
+    # Improve color management for better color preservation
+    scene.view_settings.view_transform = 'Standard'  # Standard color transform
+    scene.view_settings.look = 'None'  # No color grading to preserve original colors
+    scene.view_settings.exposure = 0.0  # No exposure adjustment
+    scene.view_settings.gamma = 1.0  # Standard gamma
+    scene.view_settings.use_curve_mapping = False  # No curve adjustments
     
     _create_camera(scene)
     _create_lighting(scene)
@@ -139,7 +161,7 @@ def _create_camera(scene):
 
 
 def _create_lighting(scene):
-    """Set up lighting for the scene"""
+    """Set up flat lighting for 2D sprite appearance"""
     # Use Eevee for better material support while still being fast
     scene.render.engine = 'BLENDER_EEVEE_NEXT'
     
@@ -152,22 +174,46 @@ def _create_lighting(scene):
     scene.render.use_sequencer = False
     scene.render.use_compositing = False
     
-    # Create an new World
+    # Disable shadows completely for flat 2D look
+    # Note: Shadow settings vary by Blender version
+    try:
+        scene.eevee.use_soft_shadows = False
+        scene.eevee.use_contact_shadows = False
+    except AttributeError:
+        # For newer Blender versions, shadows might be controlled differently
+        pass
+    
+    # Create a new World with flat ambient lighting
     scene.world = bpy.data.worlds.new('World')
     scene.world.use_nodes = True
 
-    # Create a white background
-    # Note: This is not the background of the scene, just the world used to light it
-    bg = scene.world.node_tree.nodes['Background']
-    bg.inputs[0].default_value = (1, 1, 1, 1)  # white
-    bg.inputs[1].default_value = 1.0           # brightness
+    # Set up world nodes for flat lighting
+    world_nodes = scene.world.node_tree.nodes
+    world_links = scene.world.node_tree.links
     
-    # Add simple lighting for materials (minimal setup)
-    light_data = bpy.data.lights.new('Light', type='SUN')
-    light_data.energy = 1.5  # Lower energy for speed
-    light_obj = bpy.data.objects.new('Light', light_data)
-    light_obj.location = (0, 0, 5)
-    bpy.context.collection.objects.link(light_obj)
+    # Clear default nodes
+    world_nodes.clear()
+    
+    # Add Background node with bright ambient lighting
+    bg_node = world_nodes.new('ShaderNodeBackground')
+    bg_node.inputs[0].default_value = (1.0, 1.0, 1.0, 1)  # Pure white ambient
+    bg_node.inputs[1].default_value = 1.0  # Full ambient lighting
+    
+    # Add World Output node
+    output_node = world_nodes.new('ShaderNodeOutputWorld')
+    
+    # Connect background to output
+    world_links.new(bg_node.outputs[0], output_node.inputs[0])
+    
+    # Create single flat light from camera direction (no shadows)
+    flat_light_data = bpy.data.lights.new('FlatLight', type='SUN')
+    flat_light_data.energy = 2.0  # Moderate energy
+    flat_light_data.color = (1.0, 1.0, 1.0)  # Pure white
+    flat_light_data.use_shadow = False  # Disable shadows completely
+    flat_light_obj = bpy.data.objects.new('FlatLight', flat_light_data)
+    flat_light_obj.location = (0, 0, 5)  # Directly above
+    flat_light_obj.rotation_euler = (0, 0, 0)  # Pointing straight down
+    bpy.context.collection.objects.link(flat_light_obj)
 
 
 def _matrix_to_trs(m: mathutils.Matrix):
@@ -319,11 +365,15 @@ def _render_frames_with_poses(frame_poses, target_arm, frames_dir, source_arm):
         # Update camera to follow character (dynamic camera following)
         _update_camera_for_frame(target_arm)
         
+        # Collect pose data AFTER retargeting and camera updates (right before rendering)
+        pose_data = _collect_pose_world(target_arm)
+        current_frame_data = {'frame': int(frame), 'pose': pose_data}
+        
         # Render
         scene.render.filepath = os.path.join(frames_dir, f'{frame:04d}.png')
         bpy.ops.render.render(write_still=True)
         
-        poses.append(frame_data)
+        poses.append(current_frame_data)
     
     return poses
 

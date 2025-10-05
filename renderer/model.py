@@ -9,6 +9,7 @@ class RenderJob:
     output_dir: Path
     resolution: int
     fps: int
+    pixel_size: int
 
 @dataclass
 class RenderJobResult:

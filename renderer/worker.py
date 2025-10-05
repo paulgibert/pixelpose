@@ -1,6 +1,6 @@
 import multiprocessing as mp
 from .model import RenderJobResult
-from .utils import call_count_frames_script, call_render_script
+from .utils import call_count_frames_script, call_render_script, pixelize_frames
 from .pose import render_stick_poses
 
 
@@ -25,13 +25,18 @@ def worker_process(job_queue: mp.Queue, result_queue: mp.Queue, count_only: bool
 
         # Skip render if we only want to count the frames
         elif not count_only:
-            # Render mesh frames and export poses.json
-            call_render_script(job)
+            try:
+                # Render mesh frames and export poses.json
+                frames_dir = call_render_script(job)
 
-            # Render pose frames from poses.json
-            poses_json_path = job.output_dir / 'poses.json'
-            poses_output_dir = job.output_dir / 'poses'
-            render_stick_poses(poses_json_path, poses_output_dir, job.resolution, job.resolution)
+                # Render pose frames from poses.json
+                poses_json_path = job.output_dir / 'poses.json'
+                render_stick_poses(poses_json_path, job.output_dir, job.resolution, job.resolution)
+                pixelize_frames(frames_dir, job.output_dir, pixel_size=job.pixel_size)
+            except Exception as e:
+                error = True
+                error_message = f"Render failed: {str(e)}"
+                print(f"Worker error for {job.output_dir}: {error_message}")
 
         # Enqueue the result
         result = RenderJobResult(job, frames_to_render, error, error_message)

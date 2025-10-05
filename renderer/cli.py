@@ -14,12 +14,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('source_dir', help="Source FBX directory")
     parser.add_argument('target_dir', help="Target FBX directory")
-    parser.add_argument('--output_dir', '-o', default='retargetted', help="Output directory for renders (default: retargetted/)")
+    parser.add_argument('--output_dir', '-o', default='dataset', help="Output directory for renders (default: dataset/)")
     parser.add_argument('--resolution', type=int, default=128, help=f"Render resolution (default: 128)")
     parser.add_argument('--fps', type=int, default=8, help=f"Render FPS (default: 8)")
-    parser.add_argument('--num-workers', '-n', type=int, default=1, help=f"Number of workers (default: 1)")
-    parser.add_argument('--count-only', '-c', action='store_true', help=f"Disables rendering and counts the number of frames that would have been rendered")
-    parser.add_argument('--purge-errors', '-p', action='store_true', help=f"Relocated files that cause errors")
+    parser.add_argument('--pixel_size', type=int, default=4, help=f"The pixel size to use for pixelization (default: 4)")
+    parser.add_argument('--num_workers', '-n', type=int, default=1, help=f"Number of workers (default: 1)")
+    parser.add_argument('--count_only', '-c', action='store_true', help=f"Disables rendering and counts the number of frames that would have been rendered")
+    parser.add_argument('--purge_errors', '-p', action='store_true', help=f"Relocated files that cause errors")
     parser.add_argument('--purge_dir', default='purged', help=f"Purged files are stored here (default: purged/)")
     return parser.parse_args()
 
@@ -86,8 +87,8 @@ def _create_jobs(args: argparse.Namespace) -> List[RenderJob]:
     output_dir = Path(args.output_dir)
 
     return list(render_job_iter(source_dir, target_dir, output_dir,
-                                resolution=args.resolution,
-                                fps=args.fps))
+                                args.resolution, args.fps,
+                                args.pixel_size))
 
 def _purge_errors(args: argparse.Namespace, results: List[RenderJobResult]) -> int:
     # Setup the purge directory

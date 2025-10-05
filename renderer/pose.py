@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Dict, Tuple
+import json
 
 try:
     from PIL import Image, ImageDraw
@@ -180,7 +181,8 @@ def render_stick_image(img_w: int, img_h: int, pose: Dict, line_width: int = 3, 
     img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     
-    # Draw bones using actual joint names with body part colors
+    # Draw bones using actual joint names with body part colors, sorted by projected Y position
+    bone_data = []
     for child_suffix, parent_suffix in BONE_CONNECTION_SUFFIXES:
         child_name = suffix_to_name.get(child_suffix)
         parent_name = suffix_to_name.get(parent_suffix)
@@ -188,12 +190,26 @@ def render_stick_image(img_w: int, img_h: int, pose: Dict, line_width: int = 3, 
             p0 = points.get(child_name)
             p1 = points.get(parent_name)
             if p0 and p1:
+                # Calculate average Y position in projected space (higher Y = closer to camera)
+                avg_y = (p0[1] + p1[1]) / 2.0
+                
                 # Use the child joint's body part color for the bone
                 bone_color_rgb = bone_color(child_suffix)
-                draw.line([p0, p1], fill=bone_color_rgb, width=line_width)
+                bone_data.append((avg_y, p0, p1, bone_color_rgb, child_suffix))
     
-    # Draw joints with region-based colors
-    for actual_name, (u, v) in points.items():
+    # Sort bones by projected Y position (lower Y first, so they appear behind)
+    bone_data.sort(key=lambda x: x[0])
+    
+    # Draw bones in depth order
+    for avg_y, p0, p1, bone_color_rgb, suffix in bone_data:
+        draw.line([p0, p1], fill=bone_color_rgb, width=line_width)
+    
+    # Draw joints with region-based colors, sorted by projected Y position
+    joint_items = list(points.items())
+    # Sort by projected Y position (lower Y first, so they appear behind)
+    joint_items.sort(key=lambda item: item[1][1])
+
+    for actual_name, (u, v) in joint_items:
         # Find the suffix for this joint
         suffix = None
         for s in JOINT_SUFFIXES:
@@ -208,12 +224,7 @@ def render_stick_image(img_w: int, img_h: int, pose: Dict, line_width: int = 3, 
     return img
 
 
-def render_stick_poses(poses_json_path: str, output_dir: str, img_w: int, img_h: int) -> None:
-    """Process poses.json and generate stick pose images for each frame"""
-    import json
-    import os
-    from pathlib import Path
-    
+def render_stick_poses(poses_json_path: str, output_dir: str, img_w: int, img_h: int) -> Path:
     # Load poses data
     with open(poses_json_path, 'r') as f:
         poses_data = json.load(f)

@@ -33,6 +33,7 @@ class AnimationPlayerApp:
         self.loop_var = None
         self.play_button = None
         self.frame_label = None
+        self.pixelated_label = None
         self.status_label = None
         
         self.setup_gui()
@@ -50,7 +51,7 @@ class AnimationPlayerApp:
         # Configure grid weights for main window
         self.root.columnconfigure(0, weight=1)  # Left panel
         self.root.columnconfigure(1, weight=0)   # Separator (no weight)
-        self.root.columnconfigure(2, weight=2)  # Right panel gets more space
+        self.root.columnconfigure(2, weight=3)  # Right panel gets more space
         self.root.rowconfigure(0, weight=1)
         
         # Left panel - File browser
@@ -165,16 +166,17 @@ Q/Esc - Quit"""
         nav_frame = ttk.Frame(control_frame)
         nav_frame.grid(row=0, column=4, sticky=tk.W)
         
-        ttk.Button(nav_frame, text="⏮", command=self.first_frame).pack(side=tk.LEFT, padx=2)
-        ttk.Button(nav_frame, text="⏪", command=self.prev_frame).pack(side=tk.LEFT, padx=2)
-        ttk.Button(nav_frame, text="⏩", command=self.next_frame).pack(side=tk.LEFT, padx=2)
-        ttk.Button(nav_frame, text="⏭", command=self.last_frame).pack(side=tk.LEFT, padx=2)
+        ttk.Button(nav_frame, text="|<<", command=self.first_frame).pack(side=tk.LEFT, padx=2)
+        ttk.Button(nav_frame, text="<<", command=self.prev_frame).pack(side=tk.LEFT, padx=2)
+        ttk.Button(nav_frame, text=">>", command=self.next_frame).pack(side=tk.LEFT, padx=2)
+        ttk.Button(nav_frame, text=">>|", command=self.last_frame).pack(side=tk.LEFT, padx=2)
         
         # Animation display area
-        display_frame = ttk.LabelFrame(right_panel, text="Animation & Poses", padding="5")
+        display_frame = ttk.LabelFrame(right_panel, text="Animation, Poses & Pixelated", padding="5")
         display_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
         display_frame.columnconfigure(0, weight=1)  # Animation column
         display_frame.columnconfigure(1, weight=1)  # Poses column
+        display_frame.columnconfigure(2, weight=1)  # Pixelated column
         display_frame.rowconfigure(0, weight=1)
         
         # Animation frame display
@@ -194,6 +196,15 @@ Q/Esc - Quit"""
         
         self.pose_label = ttk.Label(poses_frame, text="Poses will appear here")
         self.pose_label.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Pixelated frame display
+        pixelated_frame = ttk.LabelFrame(display_frame, text="Pixelated", padding="5")
+        pixelated_frame.grid(row=0, column=2, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0))
+        pixelated_frame.columnconfigure(0, weight=1)
+        pixelated_frame.rowconfigure(0, weight=1)
+        
+        self.pixelated_label = ttk.Label(pixelated_frame, text="Pixelated frames will appear here")
+        self.pixelated_label.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Status bar
         self.status_label = ttk.Label(right_panel, text="Ready", relief=tk.SUNKEN)
@@ -388,6 +399,9 @@ Q/Esc - Quit"""
             # Try to load and display the corresponding pose frame
             self._load_pose_frame(frame_path, frame_index)
             
+            # Try to load and display the corresponding pixelated frame
+            self._load_pixelated_frame(frame_path, frame_index)
+            
             # Update status
             self.update_status(f"Frame {frame_index + 1}/{total_frames}")
             
@@ -399,11 +413,11 @@ Q/Esc - Quit"""
         try:
             # Construct the pose frame path
             # frame_path is something like: /path/to/character/animation/frames/0001.png
-            # We need: /path/to/character/animation/poses/poses/0001.png
+            # We need: /path/to/character/animation/poses/0001.png
             
             # Get the animation directory (parent of frames directory)
             animation_dir = frame_path.parent.parent
-            pose_dir = animation_dir / "poses" / "poses"
+            pose_dir = animation_dir / "poses"
             
             # Get the frame filename
             frame_filename = frame_path.name
@@ -426,6 +440,39 @@ Q/Esc - Quit"""
             # Show error message
             self.pose_label.configure(image="", text="Error loading pose")
             self.pose_label.image = None
+    
+    def _load_pixelated_frame(self, frame_path: Path, frame_index: int):
+        """Load and display the corresponding pixelated frame from the pixels subfolder."""
+        try:
+            # Construct the pixelated frame path
+            # frame_path is something like: /path/to/character/animation/frames/0001.png
+            # We need: /path/to/character/animation/pixels/0001.png
+            
+            # Get the animation directory (parent of frames directory)
+            animation_dir = frame_path.parent.parent
+            pixels_dir = animation_dir / "pixels"
+            
+            # Get the frame filename
+            frame_filename = frame_path.name
+            
+            # Construct pixelated frame path
+            pixelated_frame_path = pixels_dir / frame_filename
+            
+            if pixelated_frame_path.exists():
+                # Load and display the pixelated frame
+                pixelated_photo = tk.PhotoImage(file=str(pixelated_frame_path))
+                self.pixelated_label.configure(image=pixelated_photo)
+                self.pixelated_label.image = pixelated_photo  # Keep a reference
+            else:
+                # Show a message if no corresponding pixelated frame exists
+                self.pixelated_label.configure(image="", text="No pixelated frame available")
+                self.pixelated_label.image = None
+                
+        except Exception as e:
+            print(f"Error loading pixelated frame: {e}")
+            # Show error message
+            self.pixelated_label.configure(image="", text="Error loading pixelated frame")
+            self.pixelated_label.image = None
     
     def on_status_change(self, status: str):
         """Handle status change events."""
