@@ -10,9 +10,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('type', choices=['animations', 'characters'],
                         help="the asset type to download")
-    parser.add_argument('--output', '-o', default='assets', help="asset download directory (default: ./mixamo/)")
+    parser.add_argument('--output_dir', '-o', default='assets', help="asset download directory (default: ./mixamo/)")
     parser.add_argument('--limit', type=int, default=4096, help="max number of assets to download (default: 4096)")
-    parser.add_argument('--count-only', action='store_true', help="count the number of assets that this command would download without performing any downloads")
+    parser.add_argument('--count_only', action='store_true', help="count the number of assets that this command would download without performing any downloads")
     return parser.parse_args()
 
 
@@ -37,7 +37,7 @@ def main():
         return
         
     # Setup the output directory
-    output_dir = Path(args.output)
+    output_dir = Path(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     # download each asset to [output_dir]/[id].fbx

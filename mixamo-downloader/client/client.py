@@ -200,7 +200,7 @@ class MixamoClient:
         # 1. Create the export job
         try:
             export_func(product_id)
-        except RuntimeError as e: # Only observed error is when the gms_hash does not exist. This is not a common enough occurence to debug yet
+        except ValueError as e: # Only observed error is when the gms_hash does not exist. This is not a common enough occurence to debug yet
             spinner.stop()
             spinner.write(f"❌ Error: {e}")
             return
