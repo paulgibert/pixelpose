@@ -146,7 +146,7 @@ class UNetDenoiser(nn.Module):
         clip: CLIP text/image embedding [B, D]
         
     Returns:
-        denoised image [B, 3, H, W]
+        denoised image latent [B, D', H, W]
     """
     
     def __init__(self, config: UNetConfig):
@@ -175,9 +175,6 @@ class UNetDenoiser(nn.Module):
             *[UNetBlock.decoder(c) for c in config.decoder]
         )
 
-        # Output: project to RGB
-        output_in_channels = config.decoder[-1].unet_conv.out_channels
-        self.output = nn.Conv2d(output_in_channels, 3, kernel_size=1)
 
     def forward(self, noisy, pose, latent, clip):
         # Encode pose and combine with noisy input
@@ -198,4 +195,4 @@ class UNetDenoiser(nn.Module):
             x = torch.cat([x, s], dim=1)  # Concatenate skip
             x, latent = dec(x, latent, clip)
         
-        return self.output(x)
+        return x
