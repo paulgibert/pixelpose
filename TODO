@@ -1,4 +1,9 @@
 Move the model out of the notebook, make configurable, and add eval
+    [x] architecture
+    [] config generation
+    [] train
+    [] testing/playground
+
 Setup param sweep with weights&biases
 Setup infram to build the entire dataset
 Do a large train - proably with only 1 character
